@@ -19,8 +19,6 @@ export const productApi = baseApi.injectEndpoints({
 });
 
 export const {
-  useSearchProductsByNumberQuery,
   useLazySearchProductsByNumberQuery,
-  useSearchProductsWithAnaloguesQuery,
   useLazySearchProductsWithAnaloguesQuery,
 } = productApi;
