@@ -9,5 +9,6 @@ export const mockRequests = {
   },
   productNotFound: {
     number: '7260500039S',
+    goodsID: '00000000-0000-0000-0000-000000000000',
   },
-}
+};

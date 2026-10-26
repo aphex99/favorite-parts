@@ -1,11 +1,7 @@
+import SearchPage from '@/pages/search/index.js';
 
 function App() {
-
-  return (
-    <h1>
-       favorite
-    </h1>
-  )
+  return <SearchPage />;
 }
 
-export default App
+export default App;
