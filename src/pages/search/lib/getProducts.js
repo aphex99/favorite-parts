@@ -7,8 +7,13 @@ export function getProducts(goods) {
 
   return products.filter(
     (product) =>
-      product.brand?.trim() &&
-      product.number?.trim() &&
+      product &&
+      typeof product === 'object' &&
+      !Array.isArray(product) &&
+      typeof product.brand === 'string' &&
+      product.brand.trim() &&
+      typeof product.number === 'string' &&
+      product.number.trim() &&
       product.goodsID !== mockRequests.productNotFound.goodsID,
   );
 }

@@ -1,1 +1,1 @@
-export { getProducts } from './formatProducts.js';
+export { getProducts } from './getProducts.js';
