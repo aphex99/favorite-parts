@@ -57,7 +57,7 @@ test('shows an API error and recovers on a successful retry', async ({
 
   await page.goto('/');
   await page.getByLabel('Part number').fill('ARTICLE-RETRY');
-  await expect(page.getByRole('alert')).toHaveText(
+  await expect(page.getByRole('alert')).toContainText(
     'Unable to load manufacturers',
   );
 

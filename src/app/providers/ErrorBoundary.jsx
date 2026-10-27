@@ -15,10 +15,10 @@ export class ErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <main className="container py-3" role="alert">
-          <h1>Something went wrong</h1>
-          <p>Reload the page to try again.</p>
+          <h1>Что-то пошло не так</h1>
+          <p>Перезагрузите страницу, чтобы попробовать снова</p>
           <button type="button" onClick={() => window.location.reload()}>
-            Reload page
+            Перезагрузить страницу
           </button>
         </main>
       );

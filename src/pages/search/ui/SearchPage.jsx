@@ -1,34 +1,31 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { mockRequests } from '@/shared/config';
 import { debounce, paginate } from '@/shared/lib';
 import { useLazySearchProductsByNumberQuery } from '@/entities/product/api';
 import { PAGE_SIZE } from '../config';
 import { getProducts } from '../lib';
+import { TableSkeleton } from './TableSkeleton.jsx';
 
 export function SearchPage() {
   const [number, setNumber] = useState(mockRequests.articleSearch.number);
   const [page, setPage] = useState(1);
-  const [lastSearchedNumber, setLastSearchedNumber] = useState('');
 
-  const [searchProducts, { currentData, error, isFetching }] =
+  const [searchProducts, { data, error, isFetching, isLoading, originalArgs }] =
     useLazySearchProductsByNumberQuery();
 
   const normalizedNumber = number.trim();
+
   const validationError =
-    number.length > 0 && !normalizedNumber
-      ? 'Enter an article number.'
-      : null;
+    Boolean(number) && !normalizedNumber ? 'Enter an article number.' : null;
+
   const isCurrentSearch =
-    normalizedNumber.length > 0 && lastSearchedNumber === normalizedNumber;
+    Boolean(normalizedNumber) && originalArgs === normalizedNumber;
 
   const debouncedSearch = useMemo(
     () =>
       debounce((value) => {
         const searchNumber = value.trim();
-        if (!searchNumber) return;
-
-        setLastSearchedNumber(searchNumber);
-        searchProducts(searchNumber);
+        if (searchNumber) searchProducts(searchNumber);
       }, 350),
     [searchProducts],
   );
@@ -38,12 +35,14 @@ export function SearchPage() {
     return () => debouncedSearch.cancel();
   }, [debouncedSearch, number]);
 
-  const showLoading = isCurrentSearch && isFetching;
+  const showInitialLoading = isCurrentSearch && isLoading && !data;
+  const showRefetching = isCurrentSearch && isFetching && Boolean(data);
   const showError = isCurrentSearch && !isFetching && Boolean(error);
+
   const products =
-    !isCurrentSearch || isFetching || error || !currentData?.goods
+    !normalizedNumber || showError || !data?.goods
       ? []
-      : getProducts(currentData.goods);
+      : getProducts(data.goods);
 
   const { items: visibleProducts, pageCount } = paginate(
     products,
@@ -53,7 +52,7 @@ export function SearchPage() {
 
   return (
     <main className="container py-3">
-      <form className="d-flex align-items-center gap-2 mb-3">
+      <div className="d-flex align-items-center gap-2 mb-3">
         <label htmlFor="part-number">Part number</label>
         <input
           id="part-number"
@@ -67,7 +66,7 @@ export function SearchPage() {
             setPage(1);
           }}
         />
-      </form>
+      </div>
 
       {validationError && (
         <p id="part-number-error" role="alert">
@@ -75,33 +74,45 @@ export function SearchPage() {
         </p>
       )}
 
-      {showLoading && <p>Loading manufacturers...</p>}
+      {showInitialLoading && <TableSkeleton />}
+
+      {showRefetching && (
+        <span
+          className="spinner-border spinner-border-sm position-absolute top-50 start-50 text-secondary"
+          style={{ width: '50px', height: '50px' }}
+          role="status"
+          aria-label="Updating manufacturers"
+        />
+      )}
+
       {showError && (
-        <div role="alert">
-          <p>Unable to load manufacturers. Please try again.</p>
+        <div
+          className="alert alert-danger d-flex align-items-center justify-content-between gap-3"
+          role="alert"
+        >
+          <p>
+            Не удалось загрузить список производителей. Попробуйте ещё раз или
+            введите другой номер
+          </p>
           <button
             type="button"
-            onClick={() => {
-              debouncedSearch.cancel();
-              const searchNumber = number.trim();
-              if (!searchNumber) return;
-
-              setLastSearchedNumber(searchNumber);
-              searchProducts(searchNumber);
-            }}
+            className="btn btn-outline-danger btn-sm"
+            onClick={() => searchProducts(normalizedNumber)}
           >
-            Retry
+            Повторить
           </button>
         </div>
       )}
 
-      {isCurrentSearch && !showLoading && !showError && products.length === 0 && (
-        <p>No manufacturers found</p>
-      )}
+      {isCurrentSearch &&
+        data &&
+        !isFetching &&
+        !showError &&
+        products.length === 0 && <p>No manufacturers found</p>}
 
       {products.length > 0 && (
         <>
-          <table>
+          <table className="table">
             <thead>
               <tr>
                 <th scope="col">Manufacturer</th>
@@ -113,7 +124,6 @@ export function SearchPage() {
               {visibleProducts.map((product) => (
                 <tr
                   key={`${product.brand ?? 'brand'}-${product.number ?? 'number'}`}
-                  onClick={() => {}}
                 >
                   <td>{product.brand}</td>
                   <td>{product.number}</td>
