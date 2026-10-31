@@ -7,13 +7,12 @@ export function TableSkeleton() {
       role="status"
       aria-label="Loading manufacturers"
     >
-      <span className="visually-hidden">Loading manufacturers...</span>
       <table className="table" aria-hidden="true" aria-busy="true">
         <thead>
           <tr>
-            <th scope="col">Manufacturer</th>
-            <th scope="col">Part number</th>
-            <th scope="col">Name</th>
+            <th scope="col">Производитель</th>
+            <th scope="col">Номер</th>
+            <th scope="col">Название</th>
           </tr>
         </thead>
         <tbody>

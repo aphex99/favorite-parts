@@ -77,6 +77,26 @@ describe('SearchPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('shows a timeout message when the request times out', async () => {
+    respondWith(() => new Promise(() => {}));
+    const originalSetTimeout = globalThis.setTimeout;
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation(
+      (callback, delay, ...args) => {
+        if (delay === 10000) {
+          return originalSetTimeout(callback, 0, ...args);
+        }
+
+        return originalSetTimeout(callback, delay, ...args);
+      },
+    );
+
+    renderWithProviders(<SearchPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Время ожидания ответа истекло. Попробуйте ещё раз',
+    );
+  });
+
   it('shows the empty state when the response contains no products', async () => {
     respondWith(() => HttpResponse.json({ goods: [] }));
 

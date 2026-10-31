@@ -1,22 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { mockRequests } from '@/shared/config';
-import { debounce, paginate } from '@/shared/lib';
+import { debounce, getApiErrorMessage } from '@/shared/lib';
 import { useLazySearchProductsByNumberQuery } from '@/entities/product/api';
-import { PAGE_SIZE } from '../config';
-import { getProducts } from '../lib';
 import { TableSkeleton } from './TableSkeleton.jsx';
+import { ManufacturersTable } from '@/pages/search/ui/ManufacturersTable.jsx';
+import { OffersTable } from '@/pages/search/ui/OffersTable.jsx';
+import { CONFIG_ERRORS } from '@/entities/product/config/constants.js';
+import { getProducts } from '@/entities/product/lib/getProducts.js';
 
 export function SearchPage() {
   const [number, setNumber] = useState(mockRequests.articleSearch.number);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
   const [page, setPage] = useState(1);
 
-  const [searchProducts, { data, error, isFetching, isLoading, originalArgs }] =
+  const [searchProducts, { currentData, error, isFetching, originalArgs }] =
     useLazySearchProductsByNumberQuery();
 
   const normalizedNumber = number.trim();
 
   const validationError =
-    Boolean(number) && !normalizedNumber ? 'Enter an article number.' : null;
+    Boolean(number) && !normalizedNumber ? 'Введите артикул' : null;
 
   const isCurrentSearch =
     Boolean(normalizedNumber) && originalArgs === normalizedNumber;
@@ -35,25 +39,27 @@ export function SearchPage() {
     return () => debouncedSearch.cancel();
   }, [debouncedSearch, number]);
 
-  const showInitialLoading = isCurrentSearch && isLoading && !data;
-  const showRefetching = isCurrentSearch && isFetching && Boolean(data);
+  const showSkeleton =
+    Boolean(normalizedNumber) && (!isCurrentSearch || isFetching);
+
   const showError = isCurrentSearch && !isFetching && Boolean(error);
+  const isRetryableError = !CONFIG_ERRORS.includes(error?.data?.error);
+
+  const onChangeInput = (event) => {
+    setNumber(event.target.value);
+    setPage(1);
+    setSelectedProduct(null);
+  };
 
   const products =
-    !normalizedNumber || showError || !data?.goods
+    !isCurrentSearch || showError || !currentData?.goods
       ? []
-      : getProducts(data.goods);
-
-  const { items: visibleProducts, pageCount } = paginate(
-    products,
-    page,
-    PAGE_SIZE,
-  );
+      : getProducts(currentData.goods);
 
   return (
     <main className="container py-3">
       <div className="d-flex align-items-center gap-2 mb-3">
-        <label htmlFor="part-number">Part number</label>
+        <label htmlFor="part-number">Номер</label>
         <input
           id="part-number"
           name="number"
@@ -61,103 +67,57 @@ export function SearchPage() {
           value={number}
           aria-invalid={Boolean(validationError)}
           aria-describedby={validationError ? 'part-number-error' : undefined}
-          onChange={(event) => {
-            setNumber(event.target.value);
-            setPage(1);
-          }}
+          onChange={onChangeInput}
         />
       </div>
 
       {validationError && (
-        <p id="part-number-error" role="alert">
+        <p id="part-number-error" role="alert" className={'text-danger'}>
           {validationError}
         </p>
       )}
 
-      {showInitialLoading && <TableSkeleton />}
-
-      {showRefetching && (
-        <span
-          className="spinner-border spinner-border-sm position-absolute top-50 start-50 text-secondary"
-          style={{ width: '50px', height: '50px' }}
-          role="status"
-          aria-label="Updating manufacturers"
-        />
-      )}
+      {showSkeleton && <TableSkeleton />}
 
       {showError && (
         <div
           className="alert alert-danger d-flex align-items-center justify-content-between gap-3"
           role="alert"
         >
-          <p>
-            Не удалось загрузить список производителей. Попробуйте ещё раз или
-            введите другой номер
-          </p>
-          <button
-            type="button"
-            className="btn btn-outline-danger btn-sm"
-            onClick={() => searchProducts(normalizedNumber)}
-          >
-            Повторить
-          </button>
+          <p>{getApiErrorMessage(error)}</p>
+          {isRetryableError && (
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              onClick={() => searchProducts(normalizedNumber)}
+            >
+              Повторить
+            </button>
+          )}
         </div>
       )}
 
       {isCurrentSearch &&
-        data &&
+        currentData &&
         !isFetching &&
         !showError &&
-        products.length === 0 && <p>No manufacturers found</p>}
+        !showSkeleton &&
+        products.length === 0 && <p>Производители не найдены</p>}
 
-      {products.length > 0 && (
-        <>
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">Manufacturer</th>
-                <th scope="col">Part number</th>
-                <th scope="col">Name</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleProducts.map((product) => (
-                <tr
-                  key={`${product.brand ?? 'brand'}-${product.number ?? 'number'}`}
-                >
-                  <td>{product.brand}</td>
-                  <td>{product.number}</td>
-                  <td>{product.name}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {!showError && selectedProduct && (
+        <OffersTable
+          product={selectedProduct}
+          onBack={() => setSelectedProduct(null)}
+        />
+      )}
 
-          {pageCount > 1 && (
-            <nav
-              className="d-flex align-items-center gap-2"
-              aria-label="Manufacturer list pagination"
-            >
-              <button
-                type="button"
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-              >
-                Previous
-              </button>
-              <span>
-                Page {page} of {pageCount}
-              </span>
-              <button
-                type="button"
-                disabled={page === pageCount}
-                onClick={() => setPage(page + 1)}
-              >
-                Next
-              </button>
-            </nav>
-          )}
-        </>
+      {!selectedProduct && isCurrentSearch && !showSkeleton && !showError && (
+        <ManufacturersTable
+          products={products}
+          onSelect={setSelectedProduct}
+          page={page}
+          setPage={setPage}
+        />
       )}
     </main>
   );

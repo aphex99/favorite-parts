@@ -1,7 +1,5 @@
 export {
   productApi,
   useLazySearchProductsByNumberQuery,
-  useLazySearchProductsWithAnaloguesQuery,
-  useSearchProductsByNumberQuery,
   useSearchProductsWithAnaloguesQuery,
-} from './productApi.js'
+} from './productApi.js';
