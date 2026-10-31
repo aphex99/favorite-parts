@@ -1,1 +1,1 @@
-export { getProducts } from './getProducts.js';
+export { getProducts } from '../../../entities/product/lib/getProducts.js';
