@@ -9,17 +9,17 @@ export const Pagination = ({ page, setPage, pageCount }) => {
         disabled={page === 1}
         onClick={() => setPage(page - 1)}
       >
-        Previous
+        Предыдущая
       </button>
       <span>
-        Page {page} of {pageCount}
+        Страница {page} из {pageCount}
       </span>
       <button
         type="button"
         disabled={page === pageCount}
         onClick={() => setPage(page + 1)}
       >
-        Next
+        Следующая
       </button>
     </nav>
   );

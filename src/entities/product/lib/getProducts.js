@@ -1,4 +1,4 @@
-import { mockRequests } from '@/shared/config/index.js';
+import { PRODUCT_NOT_FOUND_ID } from '@/shared/config/mockRequests.js';
 
 export function getProducts(goods) {
   if (!goods || typeof goods !== 'object') return [];
@@ -14,6 +14,6 @@ export function getProducts(goods) {
       product.brand.trim() &&
       typeof product.number === 'string' &&
       product.number.trim() &&
-      product.goodsID !== mockRequests.productNotFound.goodsID,
+      product.goodsID !== PRODUCT_NOT_FOUND_ID,
   );
 }

@@ -23,6 +23,7 @@ describe('product search API requests', () => {
     expect(productApi.endpoints.searchProductsByNumber.query('12345')).toEqual({
       url: '',
       params: { key: 'test-key', number: '12345' },
+      validateStatus: expect.any(Function),
     });
   });
 });
