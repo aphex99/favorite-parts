@@ -6,18 +6,19 @@ import { API_BASE_URL, mockRequests } from '@/shared/config';
 import { server } from '@/test/server.js';
 import { renderWithProviders } from '@/test/renderWithProviders.jsx';
 import { SearchPage } from './SearchPage.jsx';
+import { PAGE_SIZE } from '@/pages/search/config/index.js';
 
-const makeProducts = (count, prefix = 'Manufacturer') =>
+const makeProducts = (count, prefix = 'Manufacturer', numberPrefix = 'PART') =>
   Array.from({ length: count }, (_, index) => ({
     brand: `${prefix} ${index + 1}`,
-    number: `PART-${index + 1}`,
+    number: `${numberPrefix}-${index + 1}`,
     name: `Product ${index + 1}`,
     goodsID: `goods-${index + 1}`,
   }));
 
 const respondWith = (handler) => server.use(http.get(API_BASE_URL, handler));
 
-const searchInput = () => screen.getByRole('textbox', { name: 'Part number' });
+const searchInput = () => screen.getByRole('textbox', { name: 'Номер' });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -28,7 +29,9 @@ describe('SearchPage', () => {
     const requested = vi.fn();
     respondWith(({ request }) => {
       requested(new URL(request.url).searchParams);
-      return HttpResponse.json({ goods: makeProducts(1, 'Bosch') });
+      return HttpResponse.json({
+        goods: makeProducts(1, 'Bosch', mockRequests.searchArticle.number),
+      });
     });
 
     renderWithProviders(<SearchPage />);
@@ -36,8 +39,53 @@ describe('SearchPage', () => {
     expect(await screen.findByText('Bosch 1')).toBeInTheDocument();
     expect(requested).toHaveBeenCalledTimes(1);
     const params = requested.mock.calls[0][0];
-    expect(params.get('number')).toBe(mockRequests.articleSearch.number);
+    expect(params.get('number')).toBe(mockRequests.searchArticle.number);
     expect(params.get('key')).toBe('test-api-key');
+  });
+
+  it('retries a failed offers request and displays offers after success', async () => {
+    let offersShouldFail = true;
+    const requested = vi.fn();
+    respondWith(({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requested(params);
+      if (params.has('brand')) {
+        if (offersShouldFail) {
+          return HttpResponse.json({ message: 'Unavailable' }, { status: 500 });
+        }
+        return HttpResponse.json({
+          goods: [
+            {
+              brand: 'Bosch',
+              number: 'PART-1',
+              goodsID: 'part',
+              warehouses: [{ goodsID: 'stock', price: 22, stock: 4 }],
+            },
+          ],
+        });
+      }
+      return HttpResponse.json({
+        goods: makeProducts(1, 'Bosch', mockRequests.searchArticle.number),
+      });
+    });
+    const user = userEvent.setup();
+
+    renderWithProviders(<SearchPage />);
+    await user.click(await screen.findByRole('button', { name: 'Bosch 1' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    offersShouldFail = false;
+    await user.click(screen.getByRole('button', { name: /Повторить/ }));
+
+    expect(
+      await screen.findByRole('cell', { name: /22,00/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    const offerParams = requested.mock.calls
+      .map(([params]) => params)
+      .find((params) => params.has('brand'));
+    expect(offerParams.get('brand')).toBe('Bosch 1');
+    expect(offerParams.get('analogues')).toBe('on');
   });
 
   it('shows a table skeleton while the first request is pending', async () => {
@@ -51,8 +99,9 @@ describe('SearchPage', () => {
 
     renderWithProviders(<SearchPage />);
 
+    await waitFor(() => expect(resolveResponse).toBeTypeOf('function'));
     expect(
-      await screen.findByRole('status', { name: 'Loading manufacturers' }),
+      screen.getByRole('status', { name: 'Loading manufacturers' }),
     ).toBeInTheDocument();
     resolveResponse(HttpResponse.json({ goods: makeProducts(1) }));
     expect(await screen.findByText('Manufacturer 1')).toBeInTheDocument();
@@ -66,14 +115,14 @@ describe('SearchPage', () => {
     renderWithProviders(<SearchPage />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Не удалось загрузить список производителей.',
+      'Не удалось загрузить данные. Попробуйте ещё раз',
     );
     expect(
       screen.getByRole('button', { name: 'Повторить' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(
-      screen.queryByText('No manufacturers found'),
+      screen.queryByText('Производители не найдены'),
     ).not.toBeInTheDocument();
   });
 
@@ -103,7 +152,7 @@ describe('SearchPage', () => {
     renderWithProviders(<SearchPage />);
 
     expect(
-      await screen.findByText('No manufacturers found'),
+      await screen.findByText('Производители не найдены'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
@@ -113,24 +162,30 @@ describe('SearchPage', () => {
       const number = new URL(request.url).searchParams.get('number');
       return HttpResponse.json({
         goods:
-          number === 'NEW' ? makeProducts(1, 'New maker') : makeProducts(31),
+          number === 'NEW'
+            ? makeProducts(PAGE_SIZE + 1, 'New maker', 'NEW')
+            : makeProducts(
+                PAGE_SIZE + 1,
+                'Manufacturer',
+                mockRequests.searchArticle.number,
+              ),
       });
     });
     const user = userEvent.setup();
 
     renderWithProviders(<SearchPage />);
-    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(await screen.findByText('Страница 1 из 2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Следующая' }));
+    expect(screen.getByText('Страница 2 из 2')).toBeInTheDocument();
 
     await user.clear(searchInput());
     await user.type(searchInput(), 'NEW');
 
     expect(await screen.findByText('New maker 1')).toBeInTheDocument();
-    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByText('Страница 1 из 2')).toBeInTheDocument();
   });
 
-  it('keeps previous results and shows a small spinner while refetching', async () => {
+  it('hides previous results and shows a loader while searching for a different article', async () => {
     let resolveNewResponse;
     respondWith(({ request }) => {
       const number = new URL(request.url).searchParams.get('number');
@@ -140,7 +195,13 @@ describe('SearchPage', () => {
         });
       }
 
-      return HttpResponse.json({ goods: makeProducts(1, 'Previous maker') });
+      return HttpResponse.json({
+        goods: makeProducts(
+          1,
+          'Previous maker',
+          mockRequests.searchArticle.number,
+        ),
+      });
     });
     const user = userEvent.setup();
 
@@ -151,18 +212,23 @@ describe('SearchPage', () => {
     await user.type(searchInput(), 'NEXT');
 
     expect(
-      await screen.findByRole('status', { name: 'Updating manufacturers' }),
+      await screen.findByRole('status', { name: 'Loading manufacturers' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Previous maker 1')).toBeInTheDocument();
+
+    expect(screen.queryByText('Previous maker 1')).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(resolveNewResponse).toBeTypeOf('function');
+    });
 
     resolveNewResponse(
-      HttpResponse.json({ goods: makeProducts(1, 'New maker') }),
+      HttpResponse.json({ goods: makeProducts(1, 'New maker', 'NEXT') }),
     );
 
     expect(await screen.findByText('New maker 1')).toBeInTheDocument();
     expect(screen.queryByText('Previous maker 1')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('status', { name: 'Updating manufacturers' }),
+      screen.queryByRole('status', { name: 'Loading manufacturers' }),
     ).not.toBeInTheDocument();
   });
 
@@ -173,7 +239,13 @@ describe('SearchPage', () => {
         return HttpResponse.json({ message: 'Unavailable' }, { status: 500 });
       }
 
-      return HttpResponse.json({ goods: makeProducts(1, 'Previous maker') });
+      return HttpResponse.json({
+        goods: makeProducts(
+          1,
+          'Previous maker',
+          mockRequests.searchArticle.number,
+        ),
+      });
     });
     const user = userEvent.setup();
 
@@ -184,7 +256,7 @@ describe('SearchPage', () => {
     await user.type(searchInput(), 'BROKEN');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Не удалось загрузить список производителей.',
+      'Не удалось загрузить данные. Попробуйте ещё раз',
     );
 
     expect(screen.queryByText('Previous maker 1')).not.toBeInTheDocument();
@@ -195,7 +267,15 @@ describe('SearchPage', () => {
   });
 
   it('removes old results and the empty-state message when the input is cleared', async () => {
-    respondWith(() => HttpResponse.json({ goods: makeProducts(1) }));
+    respondWith(() =>
+      HttpResponse.json({
+        goods: makeProducts(
+          1,
+          'Manufacturer',
+          mockRequests.searchArticle.number,
+        ),
+      }),
+    );
     const user = userEvent.setup();
 
     renderWithProviders(<SearchPage />);
@@ -206,7 +286,7 @@ describe('SearchPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.queryByText('Manufacturer 1')).not.toBeInTheDocument();
     expect(
-      screen.queryByText('No manufacturers found'),
+      screen.queryByText('Производители не найдены'),
     ).not.toBeInTheDocument();
   });
 

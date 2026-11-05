@@ -1,5 +1,5 @@
 export const mockRequests = {
-  articleSearch: {
+  searchArticle: {
     number: '01089',
   },
   articleWithAnalogues: {
@@ -9,6 +9,7 @@ export const mockRequests = {
   },
   productNotFound: {
     number: '7260500039S',
-    goodsID: '00000000-0000-0000-0000-000000000000',
   },
 };
+
+export const PRODUCT_NOT_FOUND_ID = '00000000-0000-0000-0000-000000000000';

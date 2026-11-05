@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mockRequests } from '@/shared/config/index.js';
+import { PRODUCT_NOT_FOUND_ID } from '@/shared/config/mockRequests.js';
 import { getProducts } from './getProducts.js';
 
 const product = (overrides = {}) => ({
@@ -27,7 +27,9 @@ describe('getProducts', () => {
 
   it('excludes the product-not-found response', () => {
     expect(
-      getProducts([product({ goodsID: mockRequests.productNotFound.goodsID })]),
+      getProducts([
+        product({ goodsID: PRODUCT_NOT_FOUND_ID }),
+      ]),
     ).toEqual([]);
   });
 });

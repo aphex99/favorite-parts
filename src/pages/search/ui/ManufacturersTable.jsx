@@ -27,7 +27,7 @@ export const ManufacturersTable = ({
           </tr>
         </thead>
         <tbody>
-          {visibleProducts.map((product, index) => (
+          {visibleProducts.map((product) => (
             <tr key={product.goodsID}>
               <td>
                 <button

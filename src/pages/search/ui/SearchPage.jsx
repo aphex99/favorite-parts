@@ -9,7 +9,7 @@ import { CONFIG_ERRORS } from '@/entities/product/config/constants.js';
 import { getProducts } from '@/entities/product/lib/getProducts.js';
 
 export function SearchPage() {
-  const [number, setNumber] = useState(mockRequests.articleSearch.number);
+  const [number, setNumber] = useState(mockRequests.searchArticle.number);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   const [page, setPage] = useState(1);

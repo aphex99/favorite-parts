@@ -10,9 +10,14 @@ export const test = base.extend({
     await page.route(apiUrl, async (route) => {
       const requestUrl = new URL(route.request().url());
       const number = requestUrl.searchParams.get('number');
-      requests.push(number);
+      const brand = requestUrl.searchParams.get('brand');
+      const analogues = requestUrl.searchParams.get('analogues');
+      const request = { number, brand, analogues };
+      requests.push(request);
 
-      const response = responses.get(number) ?? {
+      const response = responses.get(
+        JSON.stringify({ number, brand, analogues }),
+      ) ?? responses.get(JSON.stringify({ number, brand: null, analogues: null })) ?? {
         status: 200,
         body: { goods: [] },
       };
@@ -26,8 +31,12 @@ export const test = base.extend({
 
     await use({
       requests,
-      setResponse(number, body, status = 200) {
-        responses.set(number, { status, body });
+      setResponse(number, body, status = 200, params = {}) {
+        const { brand = null, analogues = null } = params;
+        responses.set(JSON.stringify({ number, brand, analogues }), {
+          status,
+          body,
+        });
       },
     });
   },
